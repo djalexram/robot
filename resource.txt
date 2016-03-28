@@ -1,0 +1,117 @@
+*** Settings ***
+Documentation     A resource file with reusable keywords and variables.
+...
+...               The system specific keywords created here form our own
+...               domain specific language. They utilize keywords provided
+...               by the imported Selenium2Library.
+Library           Selenium2Library
+Library           Collections
+Library           String
+
+*** Variables ***
+${BROWSER}        Firefox
+${DELAY}          1
+${QA}     2
+${SSHUSER}    username
+${SSHPASS}    password
+${UI_USER}   ui_username@gmail.com
+${UI_PASS}   ui_password
+${TPKG}   3.17.22.01
+@{MONTHS}   Jan   Feb   Mar   Apr   May   Jun   Jul   Aug   Sep   Oct   Nov   Dec
+@{UI_EAST}   east1.test.com   east2.test.com
+@{UI_WEST}  west1.test.com   west2.test.com
+@{UI_SBX}   sbx1.test.com   sbx3.test.com   sbx4.test.com   sbx5.test.com
+
+
+*** Keywords ***
+Open Browser To Page     [Arguments]     ${url}
+    Open Browser    ${url}    ${BROWSER}
+    Maximize Browser Window
+    Set Selenium Speed    ${DELAY}
+
+UI Version Check   [Arguments]   ${location}   ${version}
+    Run Keyword If   '${location}'=='east'   Set Test Variable   @{servers}   @{UI_EAST}
+    Run Keyword If   '${location}'=='west'   Set Test Variable   @{servers}   @{UI_WEST}
+    Run Keyword If   '${location}'=='sbx'   Set Test Variable   @{servers}   @{UI_SBX}
+    : FOR  ${ELEMENT}  IN  @{servers}
+    \  Open Browser To Page   http://${ELEMENT}:7548/cm
+    \  Input Text   css=input[id='pmEmailAddress']   ${UI_USER}
+    \  Input Text   css=input[id='pmLoginPassword']   ${UI_PASS}
+    \  Click Element   css=button[type='submit']
+    \  Wait Until Element Is Visible   css=div[id='userPaneId']
+    \  Wait Until Element Is Not Visible   css=div[class='pm-loading']
+    \  Wait Until Element Is Visible   css=application-version
+    \  ${running} =  Get Text   css=application-version>div>span
+    \  Run Keyword And Continue On Failure   Should Contain  ${running}   ${version}
+
+
+Get Month
+    ${yyyy}     ${mm}   ${dd}=   Get Time    year,month,day   NOW
+    Set Suite Variable  ${dd}
+    ${mm} =   Remove String Using Regexp   ${mm}   ^0
+    ${mm} =  Evaluate   ${mm} -1
+    Set Suite Variable  ${mm}
+
+Check Tpackage And Service   [Arguments]   ${server}   ${SSHUSER}   ${SSHPASS}   ${system}    ${service}
+    Get Month
+    Open Connection    ${server}    port=22    timeout=20s   prompt=$
+    Login   ${SSHUSER}    ${SSHPASS}
+    Write   tpkg --qa | grep ${system}
+    ${stdout}=  Read Until   tpkg
+    Log    ${stdout}
+    Run Keyword And Continue On Failure   Should Contain   ${stdout}   ${TPKG}
+    Write   ps -ef | grep java
+    ${process}=  Read   delay=2s
+    Log   ${process}
+    ${status}   ${value} =   Run Keyword And Ignore Error   Should Contain   ${process}   @{MONTHS}[${mm}]${dd}
+    Run Keyword If  '${status}' == 'FAIL'    Run Keyword And Continue On Failure   Should Not Match Regexp   ${process}   (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\\d{2}   msg=ERROR: Looks Like Service Was Not Restarted
+    Run Keyword If   '${service}'!='${EMPTY}'    Should Contain   ${process}   ${service}
+    Write   tail /home/r/*/logs/logger.log
+    ${log}=  Read   delay=3s
+    Log    ${log}
+    Should Not Match Regexp   ${log}   \\sERROR\\s   msg=ERROR: Log contains errors!
+    Write   tail /home/r/*/logs/logger.log
+    ${log}=  Read   delay=3s
+    Log    ${log}
+    Close Connection
+
+SSH Server And Update Hadoop Config   [Arguments]   ${server}   ${env}
+    #Change config for testing
+    Open Connection    ${server}    port=22    timeout=20s   prompt=$
+    Login   ${SSHUSER}    ${SSHPASS}
+    Write   tpkg --qa | grep kp
+    ${stdout}=  Read Until   tpkg
+    Log    ${stdout}
+    Write   tpkg --stop test-server
+    ${stdout}=  Read   delay=2s
+    ${count} =  Get Count   ${stdout}    password
+    Run Keyword If   "${count}"=="1"   Write   ${SSHPASS}
+    Set Client Configuration   timeout=120s
+    Read Until Prompt
+    Run Keyword If   "${env}"=="qa"   Write   cd /home/user/sandbox
+    Run Keyword If   "${env}"=="prod"   Write   cd /home/user/prod
+    Write   sudo cp -r *.xml /etc/hadoop/conf/
+    ${stdout}=  Read   delay=2s
+    ${count} =  Get Count   ${stdout}    password
+    Run Keyword If   "${count}"=="1"   Write   ${SSHPASS}
+    Write   grep report.pipeline.status /home/r/server/config/current/application-server.properties
+    ${pipeline}=  Read   delay=2s
+    Run Keyword If   "${env}"=="prod"   Write   sudo sed -i -- 's/report\\.pipeline\\.status\\.rest\\.url=http:\\/\\/qa\\.west\\.test\\.com/report\\.pipeline\\.status\\.rest\\.url=http:\\/\\/prod\\.west\\.test\\.com/' /home/r/server/config/current/application-server.properties
+    ${status}   ${value} =   Run Keyword And Ignore Error   Run Keyword If   "${env}"=="qa"   Should Contain   ${pipeline}   qa.west
+    Run Keyword If  '${status}' == 'FAIL'   Write   sudo sed -i -- 's/report\\.pipeline\\.status\\.rest\\.url=http:\\/\\/gprod\\.west\\.test\\.com/report\\.pipeline\\.status\\.rest\\.url=http:\\/\\/qa\\.west\\.test\\.com/' /home/r/server/config/current/application-server.properties
+    ${stdout}=  Read   delay=2s
+    ${count} =  Get Count   ${stdout}    password
+    Run Keyword If   "${count}"=="1"   Write   ${SSHPASS}
+    Write   grep report.pipeline.status /home/r/server/config/current/application-server.properties
+    ${pipeline2}=  Read   delay=2s
+    Write   tpkg --start test-server &
+    ${stdout}=  Read   delay=2s
+    ${count} =  Get Count   ${stdout}    password
+    Run Keyword If   "${count}"=="1"   Write   ${SSHPASS}
+    Write   tail /home/r/server/logs/logger.log
+    ${log}=  Read   delay=3s
+    Log    ${log}
+    Write   tail /home/r/server/logs/logger.log
+    ${log}=  Read   delay=3s
+    Log    ${log}
+    Close Connection

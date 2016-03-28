@@ -1,0 +1,16 @@
+*** Settings ***
+
+Documentation  A test suite with test cases to verify tpackage and service.
+...            This test has a workflow that is created using keywords from the resource file.
+Resource       resource.txt
+Library        SSHLibrary
+Test Setup     Run Keywords    Set Suite Variable  ${ENV}  prod   AND  Set Suite Variable  ${PLAT}  ar
+Test Template   Check Tpackage And Service
+
+
+*** Test Cases ***           SERVER                                  USER   PASS    PLATFORM
+API  prod.east.test.com   ${SSHUSER}    ${SSHPASS}    ${PLAT}    ${EMPTY}
+
+    [Teardown]
+
+

@@ -1,0 +1,17 @@
+*** Settings ***
+
+Documentation  A test suite with test cases for updating server hadoop config for testing.
+...            This test has a workflow that is created using keywords from the resource file.
+Resource       resource.txt
+Library        SSHLibrary
+Test Setup     Run Keywords    Set Suite Variable  ${ENV}  qa  AND  Set Suite Variable  ${PLAT}  ar
+Test Template   SSH Server And Update Hadoop Config
+
+
+*** Test Cases ***           SERVER
+AG1   serverqa1.west.test.com   ${ENV}
+AG2   serverqa2.west.test.com   ${ENV}
+
+    [Teardown]
+
+
