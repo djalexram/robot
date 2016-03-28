@@ -1,4 +1,4 @@
-SETUP
+MAC SETUP
 
 Install Apple Xcode from AppStore and agree to license agreement
 
