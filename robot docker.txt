@@ -1,0 +1,23 @@
+FROM ubuntu:14.04
+RUN apt-get update && apt-get install -y \
+    python-pip \
+    --no-install-recommends \
+    && apt-get clean autoclean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+# Update pip
+RUN pip install -U \
+    pip \
+    robotframework
+RUN pip install robotframework-sshlibrary
+RUN pip install robotframework-selenium2library
+RUN pip install robotframework-httplibrary
+RUN pip install robotframework-databaselibrary
+  
+# Python script to convert xml output files into SQLite DB
+RUN pip install dbbot
+ 
+# Headless Firefox setup
+RUN apt-get update
+RUN apt-get install curl -y
+RUN apt-get install -y xvfb xserver-xephyr
+RUN apt-get install -y firefox
