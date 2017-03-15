@@ -1,0 +1,82 @@
+*** Settings ***
+
+Documentation  A resource file containing the application specific keywords
+...            that create our own domain specific language. This resource
+...            implements keywords for testing HTML version of the test
+...            application.
+Library        Selenium2Library
+Library        Collections
+Library        String
+Library        OperatingSystem
+Library        xvfb.py
+Library        ff_extension.py
+
+*** Variables ***
+
+
+${BROWSER}       Chrome
+${DELAY}         1
+${HEADLESS}              false  
+${USER}     username
+${PASS}     password
+${FF_PROFILE}   ${CURDIR}/fireflox_profile
+${AMAZON}    https://www.amazon.com/
+
+
+*** Keywords ***
+
+Headless Start
+    Run Keyword If   "${HEADLESS}"=="true"   Xvfb Start
+
+Headless Stop
+    Run Keyword If   "${HEADLESS}"=="true"   Xvfb Stop
+
+Setup Extensions
+    Run Keyword If   "${BROWSER}"=="Chrome"   Install Chrome Extension   ELSE   Create Firefox Profile
+
+Install Chrome Extension
+    ${chrome options}=    Evaluate    sys.modules['selenium.webdriver'].ChromeOptions()    sys, selenium.webdriver
+    Call Method    ${chrome options}    add_extension    ${CURDIR}/browser_plugins/Honey_v9.6.2.crx
+    Create Webdriver    Chrome    chrome_options=${chrome options}
+
+Create Firefox Profile
+    ${profile_path}=    create_profile  ${FF_PROFILE}
+
+Open Browser To Page    [Arguments]  ${link}
+    #Open Browser  ${link}
+    Go To   ${link}
+    Maximize Browser Window
+    Set Selenium Speed  ${DELAY} 
+
+Read File     [Arguments]   ${file}
+    ${contents}=     Get File    ${CURDIR}/${file}
+    @{lines}=    Split to lines     ${contents}
+    [return]   @{lines}
+
+
+ I have an amazon link    [Arguments]   ${link}
+    Open Browser To Page   ${AMAZON}${link}
+
+I login
+    Wait Until Element Is Visible   link=Log In
+    Click Link    link=Log In
+    Input Text   id=email-login   ${USER}
+    Input Text   id=pwd-login   ${PASS}
+    Submit Form 
+
+JS Get InnerHtml   [Arguments]   ${id}
+    ${temp}=    Execute JavaScript    return document.getElementById("${id}").innerHTML
+    [return]    ${temp}
+
+Honey content is displayed    [Arguments]   ${id}
+    #${present}=   Run Keyword And Return Status    Element Should Be Visible   id=${id}
+    Wait Until Element Is Visible   id=${id}
+    Capture Page Screenshot
+    ${innerHtml}=   JS Get InnerHtml   ${id}
+    Set Global Variable    ${innerHtml}
+    Log    ${innerHtml}
+    Element Should Be Visible   id=${id}
+
+Check content
+    Should Contain   ${innerHtml}   Log In To Amazon For The Best Deal
+    

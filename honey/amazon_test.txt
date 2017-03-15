@@ -1,0 +1,21 @@
+*** Settings ***
+
+Documentation  A test suite with test cases for Amazon checkout.
+...            This test has a workflow that is created using keywords from the resource file.
+Resource       hresource.txt
+Test Setup     Run Keywords   Setup Extensions
+
+
+*** Test Cases ***
+
+
+Test Amazon Items
+	@{links} =    Read File   amazon_items.txt
+	:FOR    ${link}    IN    @{links}
+	\  Given I have an amazon link   ${link}
+	\  When honey content is displayed   honeyContentDiv
+	\  Then check content
+	\  Close All Browsers
+
+
+
